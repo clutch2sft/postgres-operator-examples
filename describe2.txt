@@ -1,0 +1,1208 @@
+Name:         owdb-owpostgresi1-pccv-0
+Namespace:    postgres-operator
+Priority:     0
+Node:         data-cache-44e9aec6a7ab/10.39.96.5
+Start Time:   Wed, 11 May 2022 13:17:55 -0400
+Labels:       controller-revision-hash=owdb-owpostgresi1-pccv-5484cd477c
+              postgres-operator.crunchydata.com/cluster=owdb
+              postgres-operator.crunchydata.com/crunchy-postgres-exporter=true
+              postgres-operator.crunchydata.com/data=postgres
+              postgres-operator.crunchydata.com/instance=owdb-owpostgresi1-pccv
+              postgres-operator.crunchydata.com/instance-set=owpostgresi1
+              postgres-operator.crunchydata.com/patroni=owdb-ha
+              statefulset.kubernetes.io/pod-name=owdb-owpostgresi1-pccv-0
+Annotations:  cni.projectcalico.org/podIP: 10.244.189.201/32
+              cni.projectcalico.org/podIPs: 10.244.189.201/32
+Status:       Pending
+IP:           10.244.189.201
+IPs:
+  IP:           10.244.189.201
+Controlled By:  StatefulSet/owdb-owpostgresi1-pccv
+Init Containers:
+  postgres-startup:
+    Container ID:  containerd://f09e6c5d9b3362913ac215cdf5f73d45cea9b8ce8fe1f1983ec5791f33456ec4
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1
+    Image ID:      registry.developers.crunchydata.com/crunchydata/crunchy-postgres@sha256:9d71b968a08e6b189051d4e8d64e2ea2c118ac60e4b7b301478bb0b4942de7af
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -ceu
+      --
+      declare -r expected_major_version="$1" pgwal_directory="$2" pgbrLog_directory="$3"
+      results() { printf '::postgres-operator: %s::%s\n' "$@"; }
+      safelink() (
+        local desired="$1" name="$2" current
+        current=$(realpath "${name}")
+        if [ "${current}" = "${desired}" ]; then return; fi
+        set -x; mv --no-target-directory "${current}" "${desired}"
+        ln --no-dereference --force --symbolic "${desired}" "${name}"
+      )
+      echo Initializing ...
+      results 'uid' "$(id -u)" 'gid' "$(id -G)"
+      results 'postgres path' "$(command -v postgres)"
+      results 'postgres version' "${postgres_version:=$(postgres --version)}"
+      [[ "${postgres_version}" == *") ${expected_major_version}."* ]]
+      results 'config directory' "${PGDATA:?}"
+      postgres_data_directory=$([ -d "${PGDATA}" ] && postgres -C data_directory || echo "${PGDATA}")
+      results 'data directory' "${postgres_data_directory}"
+      [ "${postgres_data_directory}" = "${PGDATA}" ]
+      bootstrap_dir="${postgres_data_directory}_bootstrap"
+      [ -d "${bootstrap_dir}" ] && results 'bootstrap directory' "${bootstrap_dir}"
+      [ -d "${bootstrap_dir}" ] && postgres_data_directory="${bootstrap_dir}"
+      install --directory --mode=0700 "${postgres_data_directory}"
+      results 'pgBackRest log directory' "${pgbrLog_directory}"
+      install --directory --mode=0775 "${pgbrLog_directory}"
+      install -D --mode=0600 -t "/tmp/replication" "/pgconf/tls/replication"/{tls.crt,tls.key,ca.crt}
+      [ -f "${postgres_data_directory}/PG_VERSION" ] || exit 0
+      results 'data version' "${postgres_data_version:=$(< "${postgres_data_directory}/PG_VERSION")}"
+      [ "${postgres_data_version}" = "${expected_major_version}" ]
+      safelink "${pgwal_directory}" "${postgres_data_directory}/pg_wal"
+      results 'wal directory' "$(realpath "${postgres_data_directory}/pg_wal")"
+      rm -f "${postgres_data_directory}/recovery.signal"
+      startup
+      13
+      /pgdata/pg13_wal
+      /pgdata/pgbackrest/log
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Wed, 11 May 2022 13:24:00 -0400
+      Finished:     Wed, 11 May 2022 13:24:00 -0400
+    Ready:          False
+    Restart Count:  6
+    Environment:
+      PGDATA:         /pgdata/pg13
+      PGHOST:         /tmp/postgres
+      PGPORT:         5432
+      KRB5_CONFIG:    /etc/postgres/krb5.conf
+      KRB5RCACHEDIR:  /tmp
+    Mounts:
+      /pgconf/tls from cert-volume (ro)
+      /pgdata from postgres-data (rw)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jbl6l (ro)
+  nss-wrapper-init:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1
+    Image ID:      
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -c
+      export NSS_WRAPPER_SUBDIR=postgres CRUNCHY_NSS_USERNAME=postgres CRUNCHY_NSS_USER_DESC="postgres" 
+      # Define nss_wrapper directory and passwd & group files that will be utilized by nss_wrapper.  The
+      # nss_wrapper_env.sh script (which also sets these vars) isn't sourced here since the nss_wrapper
+      # has not yet been setup, and we therefore don't yet want the nss_wrapper vars in the environment.
+      mkdir -p /tmp/nss_wrapper
+      chmod g+rwx /tmp/nss_wrapper
+      
+      NSS_WRAPPER_DIR="/tmp/nss_wrapper/${NSS_WRAPPER_SUBDIR}"
+      NSS_WRAPPER_PASSWD="${NSS_WRAPPER_DIR}/passwd"
+      NSS_WRAPPER_GROUP="${NSS_WRAPPER_DIR}/group"
+      
+      # create the nss_wrapper directory
+      mkdir -p "${NSS_WRAPPER_DIR}"
+      
+      # grab the current user ID and group ID
+      USER_ID=$(id -u)
+      export USER_ID
+      GROUP_ID=$(id -g)
+      export GROUP_ID
+      
+      # get copies of the passwd and group files
+      [[ -f "${NSS_WRAPPER_PASSWD}" ]] || cp "/etc/passwd" "${NSS_WRAPPER_PASSWD}"
+      [[ -f "${NSS_WRAPPER_GROUP}" ]] || cp "/etc/group" "${NSS_WRAPPER_GROUP}"
+      
+      # if the username is missing from the passwd file, then add it
+      if [[ ! $(cat "${NSS_WRAPPER_PASSWD}") =~ ${CRUNCHY_NSS_USERNAME}:x:${USER_ID} ]]; then
+          echo "nss_wrapper: adding user"
+          passwd_tmp="${NSS_WRAPPER_DIR}/passwd_tmp"
+          cp "${NSS_WRAPPER_PASSWD}" "${passwd_tmp}"
+          sed -i "/${CRUNCHY_NSS_USERNAME}:x:/d" "${passwd_tmp}"
+          # needed for OCP 4.x because crio updates /etc/passwd with an entry for USER_ID
+          sed -i "/${USER_ID}:x:/d" "${passwd_tmp}"
+          printf '${CRUNCHY_NSS_USERNAME}:x:${USER_ID}:${GROUP_ID}:${CRUNCHY_NSS_USER_DESC}:${HOME}:/bin/bash\n' >> "${passwd_tmp}"
+          envsubst < "${passwd_tmp}" > "${NSS_WRAPPER_PASSWD}"
+          rm "${passwd_tmp}"
+      else
+          echo "nss_wrapper: user exists"
+      fi
+      
+      # if the username (which will be the same as the group name) is missing from group file, then add it
+      if [[ ! $(cat "${NSS_WRAPPER_GROUP}") =~ ${CRUNCHY_NSS_USERNAME}:x:${USER_ID} ]]; then
+          echo "nss_wrapper: adding group"
+          group_tmp="${NSS_WRAPPER_DIR}/group_tmp"
+          cp "${NSS_WRAPPER_GROUP}" "${group_tmp}"
+          sed -i "/${CRUNCHY_NSS_USERNAME}:x:/d" "${group_tmp}"
+          printf '${CRUNCHY_NSS_USERNAME}:x:${USER_ID}:${CRUNCHY_NSS_USERNAME}\n' >> "${group_tmp}"
+          envsubst < "${group_tmp}" > "${NSS_WRAPPER_GROUP}"
+          rm "${group_tmp}"
+      else
+          echo "nss_wrapper: group exists"
+      fi
+      
+      # export the nss_wrapper env vars
+      # define nss_wrapper directory and passwd & group files that will be utilized by nss_wrapper
+      NSS_WRAPPER_DIR="/tmp/nss_wrapper/${NSS_WRAPPER_SUBDIR}"
+      NSS_WRAPPER_PASSWD="${NSS_WRAPPER_DIR}/passwd"
+      NSS_WRAPPER_GROUP="${NSS_WRAPPER_DIR}/group"
+      
+      export LD_PRELOAD=/usr/lib64/libnss_wrapper.so
+      export NSS_WRAPPER_PASSWD="${NSS_WRAPPER_PASSWD}"
+      export NSS_WRAPPER_GROUP="${NSS_WRAPPER_GROUP}"
+      
+      echo "nss_wrapper: environment configured"
+      
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jbl6l (ro)
+Containers:
+  database:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1
+    Image ID:      
+    Port:          5432/TCP
+    Host Port:     0/TCP
+    Command:
+      patroni
+      /etc/patroni
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Liveness:       http-get https://:8008/liveness delay=3s timeout=5s period=10s #success=1 #failure=3
+    Readiness:      http-get https://:8008/readiness delay=3s timeout=5s period=10s #success=1 #failure=3
+    Environment:
+      PGDATA:                              /pgdata/pg13
+      PGHOST:                              /tmp/postgres
+      PGPORT:                              5432
+      KRB5_CONFIG:                         /etc/postgres/krb5.conf
+      KRB5RCACHEDIR:                       /tmp
+      PATRONI_NAME:                        owdb-owpostgresi1-pccv-0 (v1:metadata.name)
+      PATRONI_KUBERNETES_POD_IP:            (v1:status.podIP)
+      PATRONI_KUBERNETES_PORTS:            - name: postgres
+                                             port: 5432
+                                             protocol: TCP
+                                           
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS:  $(PATRONI_NAME).owdb-pods:5432
+      PATRONI_POSTGRESQL_LISTEN:           *:5432
+      PATRONI_POSTGRESQL_CONFIG_DIR:       /pgdata/pg13
+      PATRONI_POSTGRESQL_DATA_DIR:         /pgdata/pg13
+      PATRONI_RESTAPI_CONNECT_ADDRESS:     $(PATRONI_NAME).owdb-pods:8008
+      PATRONI_RESTAPI_LISTEN:              *:8008
+      PATRONICTL_CONFIG_FILE:              /etc/patroni
+      LD_PRELOAD:                          /usr/lib64/libnss_wrapper.so
+      NSS_WRAPPER_PASSWD:                  /tmp/nss_wrapper/postgres/passwd
+      NSS_WRAPPER_GROUP:                   /tmp/nss_wrapper/postgres/group
+    Mounts:
+      /dev/shm from dshm (rw)
+      /etc/database-containerinfo from database-containerinfo (ro)
+      /etc/patroni from patroni-config (ro)
+      /etc/pgbackrest/conf.d from pgbackrest-config (ro)
+      /pgconf/tls from cert-volume (ro)
+      /pgdata from postgres-data (rw)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jbl6l (ro)
+  replication-cert-copy:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1
+    Image ID:      
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -ceu
+      --
+      monitor() {
+      declare -r directory="/pgconf/tls"
+      exec {fd}<> <(:)
+      while read -r -t 5 -u "${fd}" || true; do
+        if [ "${directory}" -nt "/proc/self/fd/${fd}" ] &&
+          install -D --mode=0600 -t "/tmp/replication" "${directory}"/{replication/tls.crt,replication/tls.key,replication/ca.crt} &&
+          pkill -HUP --exact --parent=1 postgres
+        then
+          exec {fd}>&- && exec {fd}<> <(:)
+          stat --format='Loaded certificates dated %y' "${directory}"
+        fi
+      done
+      }; export -f monitor; exec -a "$0" bash -ceu monitor
+      replication-cert-copy
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /pgconf/tls from cert-volume (ro)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jbl6l (ro)
+  pgbackrest:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0
+    Image ID:      
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      pgbackrest
+      server
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Liveness:       exec [pgbackrest server-ping] delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      LD_PRELOAD:          /usr/lib64/libnss_wrapper.so
+      NSS_WRAPPER_PASSWD:  /tmp/nss_wrapper/postgres/passwd
+      NSS_WRAPPER_GROUP:   /tmp/nss_wrapper/postgres/group
+    Mounts:
+      /etc/pgbackrest/conf.d from pgbackrest-config (ro)
+      /etc/pgbackrest/server from pgbackrest-server (ro)
+      /pgdata from postgres-data (rw)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jbl6l (ro)
+  pgbackrest-config:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0
+    Image ID:      
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -ceu
+      --
+      monitor() {
+      exec {fd}<> <(:)
+      until read -r -t 5 -u "${fd}"; do
+        if
+          [ "${filename}" -nt "/proc/self/fd/${fd}" ] &&
+          pkill -HUP --exact --parent=0 pgbackrest
+        then
+          exec {fd}>&- && exec {fd}<> <(:)
+          stat --dereference --format='Loaded configuration dated %y' "${filename}"
+        elif
+          { [ "${directory}" -nt "/proc/self/fd/${fd}" ] ||
+            [ "${authority}" -nt "/proc/self/fd/${fd}" ]
+          } &&
+          pkill -HUP --exact --parent=0 pgbackrest
+        then
+          exec {fd}>&- && exec {fd}<> <(:)
+          stat --format='Loaded certificates dated %y' "${directory}"
+        fi
+      done
+      }; export directory="$1" authority="$2" filename="$3"; export -f monitor; exec -a "$0" bash -ceu monitor
+      pgbackrest-config
+      /etc/pgbackrest/server
+      /etc/pgbackrest/conf.d/~postgres-operator/tls-ca.crt
+      /etc/pgbackrest/conf.d/~postgres-operator_server.conf
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /etc/pgbackrest/conf.d from pgbackrest-config (ro)
+      /etc/pgbackrest/server from pgbackrest-server (ro)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jbl6l (ro)
+  exporter:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-postgres-exporter:ubi8-5.1.0-0
+    Image ID:      
+    Port:          9187/TCP
+    Host Port:     0/TCP
+    Command:
+      /opt/cpm/bin/start.sh
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Environment:
+      CONFIG_DIR:                           /opt/cpm/conf
+      POSTGRES_EXPORTER_PORT:               9187
+      PGBACKREST_INFO_THROTTLE_MINUTES:     10
+      PG_STAT_STATEMENTS_LIMIT:             20
+      PG_STAT_STATEMENTS_THROTTLE_MINUTES:  -1
+      EXPORTER_PG_HOST:                     localhost
+      EXPORTER_PG_PORT:                     5432
+      EXPORTER_PG_DATABASE:                 postgres
+      EXPORTER_PG_USER:                     ccp_monitoring
+      EXPORTER_PG_PASSWORD:                 <set to the key 'password' in secret 'owdb-monitoring'>  Optional: false
+    Mounts:
+      /conf from exporter-config (rw)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-jbl6l (ro)
+Conditions:
+  Type              Status
+  Initialized       False 
+  Ready             False 
+  ContainersReady   False 
+  PodScheduled      True 
+Volumes:
+  cert-volume:
+    Type:                Projected (a volume that contains injected data from multiple sources)
+    SecretName:          owdb-cluster-cert
+    SecretOptionalName:  <nil>
+    SecretName:          owdb-replication-cert
+    SecretOptionalName:  <nil>
+  postgres-data:
+    Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+    ClaimName:  owdb-owpostgresi1-pccv-pgdata
+    ReadOnly:   false
+  database-containerinfo:
+    Type:  DownwardAPI (a volume populated by information about the pod)
+    Items:
+      limits.cpu -> cpu_limit
+      requests.cpu -> cpu_request
+      limits.memory -> mem_limit
+      requests.memory -> mem_request
+      metadata.labels -> labels
+      metadata.annotations -> annotations
+  pgbackrest-server:
+    Type:                Projected (a volume that contains injected data from multiple sources)
+    SecretName:          owdb-owpostgresi1-pccv-certs
+    SecretOptionalName:  <nil>
+  pgbackrest-config:
+    Type:                Projected (a volume that contains injected data from multiple sources)
+    ConfigMapName:       owdb-pgbackrest-config
+    ConfigMapOptional:   <nil>
+    SecretName:          owdb-pgbackrest
+    SecretOptionalName:  0xc0007443e3
+  patroni-config:
+    Type:                Projected (a volume that contains injected data from multiple sources)
+    ConfigMapName:       owdb-config
+    ConfigMapOptional:   <nil>
+    ConfigMapName:       owdb-owpostgresi1-pccv-config
+    ConfigMapOptional:   <nil>
+    SecretName:          owdb-owpostgresi1-pccv-certs
+    SecretOptionalName:  <nil>
+  exporter-config:
+    Type:  Projected (a volume that contains injected data from multiple sources)
+  tmp:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  16Mi
+  dshm:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     Memory
+    SizeLimit:  <unset>
+  kube-api-access-jbl6l:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason                  Age                    From                     Message
+  ----     ------                  ----                   ----                     -------
+  Warning  FailedScheduling        7m24s                  default-scheduler        0/3 nodes are available: 3 pod has unbound immediate PersistentVolumeClaims.
+  Warning  FailedScheduling        7m13s (x1 over 7m23s)  default-scheduler        0/3 nodes are available: 3 pod has unbound immediate PersistentVolumeClaims.
+  Normal   Scheduled               7m8s                   default-scheduler        Successfully assigned postgres-operator/owdb-owpostgresi1-pccv-0 to data-cache-44e9aec6a7ab
+  Warning  FailedAttachVolume      6m52s                  attachdetach-controller  AttachVolume.Attach failed for volume "pvc-9a8c7c573353471d" : rpc error: code = DeadlineExceeded desc = context deadline exceeded
+  Normal   SuccessfulAttachVolume  6m51s                  attachdetach-controller  AttachVolume.Attach succeeded for volume "pvc-9a8c7c573353471d"
+  Normal   Pulling                 6m47s                  kubelet                  Pulling image "registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1"
+  Normal   Pulled                  6m42s                  kubelet                  Successfully pulled image "registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1" in 4.582078023s
+  Normal   Created                 5m21s (x5 over 6m42s)  kubelet                  Created container postgres-startup
+  Normal   Started                 5m21s (x5 over 6m42s)  kubelet                  Started container postgres-startup
+  Normal   Pulled                  5m21s (x4 over 6m41s)  kubelet                  Container image "registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1" already present on machine
+  Warning  BackOff                 101s (x25 over 6m40s)  kubelet                  Back-off restarting failed container
+
+
+Name:         owdb-owpostgresi1-zfc8-0
+Namespace:    postgres-operator
+Priority:     0
+Node:         data-cache-44e9aec6a7ab/10.39.96.5
+Start Time:   Wed, 11 May 2022 13:17:55 -0400
+Labels:       controller-revision-hash=owdb-owpostgresi1-zfc8-84494f696d
+              postgres-operator.crunchydata.com/cluster=owdb
+              postgres-operator.crunchydata.com/crunchy-postgres-exporter=true
+              postgres-operator.crunchydata.com/data=postgres
+              postgres-operator.crunchydata.com/instance=owdb-owpostgresi1-zfc8
+              postgres-operator.crunchydata.com/instance-set=owpostgresi1
+              postgres-operator.crunchydata.com/patroni=owdb-ha
+              statefulset.kubernetes.io/pod-name=owdb-owpostgresi1-zfc8-0
+Annotations:  cni.projectcalico.org/podIP: 10.244.189.200/32
+              cni.projectcalico.org/podIPs: 10.244.189.200/32
+Status:       Pending
+IP:           10.244.189.200
+IPs:
+  IP:           10.244.189.200
+Controlled By:  StatefulSet/owdb-owpostgresi1-zfc8
+Init Containers:
+  postgres-startup:
+    Container ID:  containerd://f48fd2099c4a07a2c100b147d9f4de48c6bebacdeb3b69541bba51f88ae6f264
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1
+    Image ID:      registry.developers.crunchydata.com/crunchydata/crunchy-postgres@sha256:9d71b968a08e6b189051d4e8d64e2ea2c118ac60e4b7b301478bb0b4942de7af
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -ceu
+      --
+      declare -r expected_major_version="$1" pgwal_directory="$2" pgbrLog_directory="$3"
+      results() { printf '::postgres-operator: %s::%s\n' "$@"; }
+      safelink() (
+        local desired="$1" name="$2" current
+        current=$(realpath "${name}")
+        if [ "${current}" = "${desired}" ]; then return; fi
+        set -x; mv --no-target-directory "${current}" "${desired}"
+        ln --no-dereference --force --symbolic "${desired}" "${name}"
+      )
+      echo Initializing ...
+      results 'uid' "$(id -u)" 'gid' "$(id -G)"
+      results 'postgres path' "$(command -v postgres)"
+      results 'postgres version' "${postgres_version:=$(postgres --version)}"
+      [[ "${postgres_version}" == *") ${expected_major_version}."* ]]
+      results 'config directory' "${PGDATA:?}"
+      postgres_data_directory=$([ -d "${PGDATA}" ] && postgres -C data_directory || echo "${PGDATA}")
+      results 'data directory' "${postgres_data_directory}"
+      [ "${postgres_data_directory}" = "${PGDATA}" ]
+      bootstrap_dir="${postgres_data_directory}_bootstrap"
+      [ -d "${bootstrap_dir}" ] && results 'bootstrap directory' "${bootstrap_dir}"
+      [ -d "${bootstrap_dir}" ] && postgres_data_directory="${bootstrap_dir}"
+      install --directory --mode=0700 "${postgres_data_directory}"
+      results 'pgBackRest log directory' "${pgbrLog_directory}"
+      install --directory --mode=0775 "${pgbrLog_directory}"
+      install -D --mode=0600 -t "/tmp/replication" "/pgconf/tls/replication"/{tls.crt,tls.key,ca.crt}
+      [ -f "${postgres_data_directory}/PG_VERSION" ] || exit 0
+      results 'data version' "${postgres_data_version:=$(< "${postgres_data_directory}/PG_VERSION")}"
+      [ "${postgres_data_version}" = "${expected_major_version}" ]
+      safelink "${pgwal_directory}" "${postgres_data_directory}/pg_wal"
+      results 'wal directory' "$(realpath "${postgres_data_directory}/pg_wal")"
+      rm -f "${postgres_data_directory}/recovery.signal"
+      startup
+      13
+      /pgdata/pg13_wal
+      /pgdata/pgbackrest/log
+    State:          Waiting
+      Reason:       CrashLoopBackOff
+    Last State:     Terminated
+      Reason:       Error
+      Exit Code:    1
+      Started:      Wed, 11 May 2022 13:24:08 -0400
+      Finished:     Wed, 11 May 2022 13:24:08 -0400
+    Ready:          False
+    Restart Count:  6
+    Environment:
+      PGDATA:         /pgdata/pg13
+      PGHOST:         /tmp/postgres
+      PGPORT:         5432
+      KRB5_CONFIG:    /etc/postgres/krb5.conf
+      KRB5RCACHEDIR:  /tmp
+    Mounts:
+      /pgconf/tls from cert-volume (ro)
+      /pgdata from postgres-data (rw)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-knqjf (ro)
+  nss-wrapper-init:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1
+    Image ID:      
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -c
+      export NSS_WRAPPER_SUBDIR=postgres CRUNCHY_NSS_USERNAME=postgres CRUNCHY_NSS_USER_DESC="postgres" 
+      # Define nss_wrapper directory and passwd & group files that will be utilized by nss_wrapper.  The
+      # nss_wrapper_env.sh script (which also sets these vars) isn't sourced here since the nss_wrapper
+      # has not yet been setup, and we therefore don't yet want the nss_wrapper vars in the environment.
+      mkdir -p /tmp/nss_wrapper
+      chmod g+rwx /tmp/nss_wrapper
+      
+      NSS_WRAPPER_DIR="/tmp/nss_wrapper/${NSS_WRAPPER_SUBDIR}"
+      NSS_WRAPPER_PASSWD="${NSS_WRAPPER_DIR}/passwd"
+      NSS_WRAPPER_GROUP="${NSS_WRAPPER_DIR}/group"
+      
+      # create the nss_wrapper directory
+      mkdir -p "${NSS_WRAPPER_DIR}"
+      
+      # grab the current user ID and group ID
+      USER_ID=$(id -u)
+      export USER_ID
+      GROUP_ID=$(id -g)
+      export GROUP_ID
+      
+      # get copies of the passwd and group files
+      [[ -f "${NSS_WRAPPER_PASSWD}" ]] || cp "/etc/passwd" "${NSS_WRAPPER_PASSWD}"
+      [[ -f "${NSS_WRAPPER_GROUP}" ]] || cp "/etc/group" "${NSS_WRAPPER_GROUP}"
+      
+      # if the username is missing from the passwd file, then add it
+      if [[ ! $(cat "${NSS_WRAPPER_PASSWD}") =~ ${CRUNCHY_NSS_USERNAME}:x:${USER_ID} ]]; then
+          echo "nss_wrapper: adding user"
+          passwd_tmp="${NSS_WRAPPER_DIR}/passwd_tmp"
+          cp "${NSS_WRAPPER_PASSWD}" "${passwd_tmp}"
+          sed -i "/${CRUNCHY_NSS_USERNAME}:x:/d" "${passwd_tmp}"
+          # needed for OCP 4.x because crio updates /etc/passwd with an entry for USER_ID
+          sed -i "/${USER_ID}:x:/d" "${passwd_tmp}"
+          printf '${CRUNCHY_NSS_USERNAME}:x:${USER_ID}:${GROUP_ID}:${CRUNCHY_NSS_USER_DESC}:${HOME}:/bin/bash\n' >> "${passwd_tmp}"
+          envsubst < "${passwd_tmp}" > "${NSS_WRAPPER_PASSWD}"
+          rm "${passwd_tmp}"
+      else
+          echo "nss_wrapper: user exists"
+      fi
+      
+      # if the username (which will be the same as the group name) is missing from group file, then add it
+      if [[ ! $(cat "${NSS_WRAPPER_GROUP}") =~ ${CRUNCHY_NSS_USERNAME}:x:${USER_ID} ]]; then
+          echo "nss_wrapper: adding group"
+          group_tmp="${NSS_WRAPPER_DIR}/group_tmp"
+          cp "${NSS_WRAPPER_GROUP}" "${group_tmp}"
+          sed -i "/${CRUNCHY_NSS_USERNAME}:x:/d" "${group_tmp}"
+          printf '${CRUNCHY_NSS_USERNAME}:x:${USER_ID}:${CRUNCHY_NSS_USERNAME}\n' >> "${group_tmp}"
+          envsubst < "${group_tmp}" > "${NSS_WRAPPER_GROUP}"
+          rm "${group_tmp}"
+      else
+          echo "nss_wrapper: group exists"
+      fi
+      
+      # export the nss_wrapper env vars
+      # define nss_wrapper directory and passwd & group files that will be utilized by nss_wrapper
+      NSS_WRAPPER_DIR="/tmp/nss_wrapper/${NSS_WRAPPER_SUBDIR}"
+      NSS_WRAPPER_PASSWD="${NSS_WRAPPER_DIR}/passwd"
+      NSS_WRAPPER_GROUP="${NSS_WRAPPER_DIR}/group"
+      
+      export LD_PRELOAD=/usr/lib64/libnss_wrapper.so
+      export NSS_WRAPPER_PASSWD="${NSS_WRAPPER_PASSWD}"
+      export NSS_WRAPPER_GROUP="${NSS_WRAPPER_GROUP}"
+      
+      echo "nss_wrapper: environment configured"
+      
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-knqjf (ro)
+Containers:
+  database:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1
+    Image ID:      
+    Port:          5432/TCP
+    Host Port:     0/TCP
+    Command:
+      patroni
+      /etc/patroni
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Liveness:       http-get https://:8008/liveness delay=3s timeout=5s period=10s #success=1 #failure=3
+    Readiness:      http-get https://:8008/readiness delay=3s timeout=5s period=10s #success=1 #failure=3
+    Environment:
+      PGDATA:                              /pgdata/pg13
+      PGHOST:                              /tmp/postgres
+      PGPORT:                              5432
+      KRB5_CONFIG:                         /etc/postgres/krb5.conf
+      KRB5RCACHEDIR:                       /tmp
+      PATRONI_NAME:                        owdb-owpostgresi1-zfc8-0 (v1:metadata.name)
+      PATRONI_KUBERNETES_POD_IP:            (v1:status.podIP)
+      PATRONI_KUBERNETES_PORTS:            - name: postgres
+                                             port: 5432
+                                             protocol: TCP
+                                           
+      PATRONI_POSTGRESQL_CONNECT_ADDRESS:  $(PATRONI_NAME).owdb-pods:5432
+      PATRONI_POSTGRESQL_LISTEN:           *:5432
+      PATRONI_POSTGRESQL_CONFIG_DIR:       /pgdata/pg13
+      PATRONI_POSTGRESQL_DATA_DIR:         /pgdata/pg13
+      PATRONI_RESTAPI_CONNECT_ADDRESS:     $(PATRONI_NAME).owdb-pods:8008
+      PATRONI_RESTAPI_LISTEN:              *:8008
+      PATRONICTL_CONFIG_FILE:              /etc/patroni
+      LD_PRELOAD:                          /usr/lib64/libnss_wrapper.so
+      NSS_WRAPPER_PASSWD:                  /tmp/nss_wrapper/postgres/passwd
+      NSS_WRAPPER_GROUP:                   /tmp/nss_wrapper/postgres/group
+    Mounts:
+      /dev/shm from dshm (rw)
+      /etc/database-containerinfo from database-containerinfo (ro)
+      /etc/patroni from patroni-config (ro)
+      /etc/pgbackrest/conf.d from pgbackrest-config (ro)
+      /pgconf/tls from cert-volume (ro)
+      /pgdata from postgres-data (rw)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-knqjf (ro)
+  replication-cert-copy:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1
+    Image ID:      
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -ceu
+      --
+      monitor() {
+      declare -r directory="/pgconf/tls"
+      exec {fd}<> <(:)
+      while read -r -t 5 -u "${fd}" || true; do
+        if [ "${directory}" -nt "/proc/self/fd/${fd}" ] &&
+          install -D --mode=0600 -t "/tmp/replication" "${directory}"/{replication/tls.crt,replication/tls.key,replication/ca.crt} &&
+          pkill -HUP --exact --parent=1 postgres
+        then
+          exec {fd}>&- && exec {fd}<> <(:)
+          stat --format='Loaded certificates dated %y' "${directory}"
+        fi
+      done
+      }; export -f monitor; exec -a "$0" bash -ceu monitor
+      replication-cert-copy
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /pgconf/tls from cert-volume (ro)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-knqjf (ro)
+  pgbackrest:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0
+    Image ID:      
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      pgbackrest
+      server
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Liveness:       exec [pgbackrest server-ping] delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      LD_PRELOAD:          /usr/lib64/libnss_wrapper.so
+      NSS_WRAPPER_PASSWD:  /tmp/nss_wrapper/postgres/passwd
+      NSS_WRAPPER_GROUP:   /tmp/nss_wrapper/postgres/group
+    Mounts:
+      /etc/pgbackrest/conf.d from pgbackrest-config (ro)
+      /etc/pgbackrest/server from pgbackrest-server (ro)
+      /pgdata from postgres-data (rw)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-knqjf (ro)
+  pgbackrest-config:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0
+    Image ID:      
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -ceu
+      --
+      monitor() {
+      exec {fd}<> <(:)
+      until read -r -t 5 -u "${fd}"; do
+        if
+          [ "${filename}" -nt "/proc/self/fd/${fd}" ] &&
+          pkill -HUP --exact --parent=0 pgbackrest
+        then
+          exec {fd}>&- && exec {fd}<> <(:)
+          stat --dereference --format='Loaded configuration dated %y' "${filename}"
+        elif
+          { [ "${directory}" -nt "/proc/self/fd/${fd}" ] ||
+            [ "${authority}" -nt "/proc/self/fd/${fd}" ]
+          } &&
+          pkill -HUP --exact --parent=0 pgbackrest
+        then
+          exec {fd}>&- && exec {fd}<> <(:)
+          stat --format='Loaded certificates dated %y' "${directory}"
+        fi
+      done
+      }; export directory="$1" authority="$2" filename="$3"; export -f monitor; exec -a "$0" bash -ceu monitor
+      pgbackrest-config
+      /etc/pgbackrest/server
+      /etc/pgbackrest/conf.d/~postgres-operator/tls-ca.crt
+      /etc/pgbackrest/conf.d/~postgres-operator_server.conf
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /etc/pgbackrest/conf.d from pgbackrest-config (ro)
+      /etc/pgbackrest/server from pgbackrest-server (ro)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-knqjf (ro)
+  exporter:
+    Container ID:  
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-postgres-exporter:ubi8-5.1.0-0
+    Image ID:      
+    Port:          9187/TCP
+    Host Port:     0/TCP
+    Command:
+      /opt/cpm/bin/start.sh
+    State:          Waiting
+      Reason:       PodInitializing
+    Ready:          False
+    Restart Count:  0
+    Environment:
+      CONFIG_DIR:                           /opt/cpm/conf
+      POSTGRES_EXPORTER_PORT:               9187
+      PGBACKREST_INFO_THROTTLE_MINUTES:     10
+      PG_STAT_STATEMENTS_LIMIT:             20
+      PG_STAT_STATEMENTS_THROTTLE_MINUTES:  -1
+      EXPORTER_PG_HOST:                     localhost
+      EXPORTER_PG_PORT:                     5432
+      EXPORTER_PG_DATABASE:                 postgres
+      EXPORTER_PG_USER:                     ccp_monitoring
+      EXPORTER_PG_PASSWORD:                 <set to the key 'password' in secret 'owdb-monitoring'>  Optional: false
+    Mounts:
+      /conf from exporter-config (rw)
+      /tmp from tmp (rw)
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-knqjf (ro)
+Conditions:
+  Type              Status
+  Initialized       False 
+  Ready             False 
+  ContainersReady   False 
+  PodScheduled      True 
+Volumes:
+  cert-volume:
+    Type:                Projected (a volume that contains injected data from multiple sources)
+    SecretName:          owdb-cluster-cert
+    SecretOptionalName:  <nil>
+    SecretName:          owdb-replication-cert
+    SecretOptionalName:  <nil>
+  postgres-data:
+    Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+    ClaimName:  owdb-owpostgresi1-zfc8-pgdata
+    ReadOnly:   false
+  database-containerinfo:
+    Type:  DownwardAPI (a volume populated by information about the pod)
+    Items:
+      limits.cpu -> cpu_limit
+      requests.cpu -> cpu_request
+      limits.memory -> mem_limit
+      requests.memory -> mem_request
+      metadata.labels -> labels
+      metadata.annotations -> annotations
+  pgbackrest-server:
+    Type:                Projected (a volume that contains injected data from multiple sources)
+    SecretName:          owdb-owpostgresi1-zfc8-certs
+    SecretOptionalName:  <nil>
+  pgbackrest-config:
+    Type:                Projected (a volume that contains injected data from multiple sources)
+    ConfigMapName:       owdb-pgbackrest-config
+    ConfigMapOptional:   <nil>
+    SecretName:          owdb-pgbackrest
+    SecretOptionalName:  0xc000745153
+  patroni-config:
+    Type:                Projected (a volume that contains injected data from multiple sources)
+    ConfigMapName:       owdb-config
+    ConfigMapOptional:   <nil>
+    ConfigMapName:       owdb-owpostgresi1-zfc8-config
+    ConfigMapOptional:   <nil>
+    SecretName:          owdb-owpostgresi1-zfc8-certs
+    SecretOptionalName:  <nil>
+  exporter-config:
+    Type:  Projected (a volume that contains injected data from multiple sources)
+  tmp:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     
+    SizeLimit:  16Mi
+  dshm:
+    Type:       EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:     Memory
+    SizeLimit:  <unset>
+  kube-api-access-knqjf:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason                  Age                    From                     Message
+  ----     ------                  ----                   ----                     -------
+  Warning  FailedScheduling        7m24s                  default-scheduler        0/3 nodes are available: 3 pod has unbound immediate PersistentVolumeClaims.
+  Warning  FailedScheduling        7m13s (x1 over 7m22s)  default-scheduler        0/3 nodes are available: 3 pod has unbound immediate PersistentVolumeClaims.
+  Normal   Scheduled               7m8s                   default-scheduler        Successfully assigned postgres-operator/owdb-owpostgresi1-zfc8-0 to data-cache-44e9aec6a7ab
+  Normal   SuccessfulAttachVolume  7m6s                   attachdetach-controller  AttachVolume.Attach succeeded for volume "pvc-cedd6033c6474f06"
+  Normal   Pulling                 7m1s                   kubelet                  Pulling image "registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1"
+  Normal   Pulled                  6m43s                  kubelet                  Successfully pulled image "registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1" in 18.721458106s
+  Normal   Created                 5m12s (x5 over 6m42s)  kubelet                  Created container postgres-startup
+  Normal   Started                 5m12s (x5 over 6m42s)  kubelet                  Started container postgres-startup
+  Normal   Pulled                  5m12s (x4 over 6m41s)  kubelet                  Container image "registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1" already present on machine
+  Warning  BackOff                 110s (x24 over 6m40s)  kubelet                  Back-off restarting failed container
+
+
+Name:         owdb-repo-host-0
+Namespace:    postgres-operator
+Priority:     0
+Node:         app-f51ab83996c1/10.39.96.6
+Start Time:   Wed, 11 May 2022 13:17:55 -0400
+Labels:       controller-revision-hash=owdb-repo-host-75f7b5b895
+              postgres-operator.crunchydata.com/cluster=owdb
+              postgres-operator.crunchydata.com/data=pgbackrest
+              postgres-operator.crunchydata.com/pgbackrest=
+              postgres-operator.crunchydata.com/pgbackrest-dedicated=
+              statefulset.kubernetes.io/pod-name=owdb-repo-host-0
+Annotations:  cni.projectcalico.org/podIP: 10.244.50.132/32
+              cni.projectcalico.org/podIPs: 10.244.50.132/32
+Status:       Running
+IP:           10.244.50.132
+IPs:
+  IP:           10.244.50.132
+Controlled By:  StatefulSet/owdb-repo-host
+Init Containers:
+  pgbackrest-log-dir:
+    Container ID:  containerd://ee563f26ea80c82939fe1d91b7181a042e577b75e875fb0f83ae9a85245d8e18
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0
+    Image ID:      registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest@sha256:93a597704eca04d4529f9db8c593e11ca74ca4d38a223d22a8837357fef3ab3d
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -c
+      mkdir -p /pgbackrest/repo1/log
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Wed, 11 May 2022 13:18:17 -0400
+      Finished:     Wed, 11 May 2022 13:18:17 -0400
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /pgbackrest/repo1 from repo1 (rw)
+      /tmp from tmp (rw)
+  nss-wrapper-init:
+    Container ID:  containerd://220b5ff2c1e00ed5b15095ddc1569a3031fcb8a8a2d5fd40b9a442c2b77c4612
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0
+    Image ID:      registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest@sha256:93a597704eca04d4529f9db8c593e11ca74ca4d38a223d22a8837357fef3ab3d
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -c
+      export NSS_WRAPPER_SUBDIR=postgres CRUNCHY_NSS_USERNAME=postgres CRUNCHY_NSS_USER_DESC="postgres" 
+      # Define nss_wrapper directory and passwd & group files that will be utilized by nss_wrapper.  The
+      # nss_wrapper_env.sh script (which also sets these vars) isn't sourced here since the nss_wrapper
+      # has not yet been setup, and we therefore don't yet want the nss_wrapper vars in the environment.
+      mkdir -p /tmp/nss_wrapper
+      chmod g+rwx /tmp/nss_wrapper
+      
+      NSS_WRAPPER_DIR="/tmp/nss_wrapper/${NSS_WRAPPER_SUBDIR}"
+      NSS_WRAPPER_PASSWD="${NSS_WRAPPER_DIR}/passwd"
+      NSS_WRAPPER_GROUP="${NSS_WRAPPER_DIR}/group"
+      
+      # create the nss_wrapper directory
+      mkdir -p "${NSS_WRAPPER_DIR}"
+      
+      # grab the current user ID and group ID
+      USER_ID=$(id -u)
+      export USER_ID
+      GROUP_ID=$(id -g)
+      export GROUP_ID
+      
+      # get copies of the passwd and group files
+      [[ -f "${NSS_WRAPPER_PASSWD}" ]] || cp "/etc/passwd" "${NSS_WRAPPER_PASSWD}"
+      [[ -f "${NSS_WRAPPER_GROUP}" ]] || cp "/etc/group" "${NSS_WRAPPER_GROUP}"
+      
+      # if the username is missing from the passwd file, then add it
+      if [[ ! $(cat "${NSS_WRAPPER_PASSWD}") =~ ${CRUNCHY_NSS_USERNAME}:x:${USER_ID} ]]; then
+          echo "nss_wrapper: adding user"
+          passwd_tmp="${NSS_WRAPPER_DIR}/passwd_tmp"
+          cp "${NSS_WRAPPER_PASSWD}" "${passwd_tmp}"
+          sed -i "/${CRUNCHY_NSS_USERNAME}:x:/d" "${passwd_tmp}"
+          # needed for OCP 4.x because crio updates /etc/passwd with an entry for USER_ID
+          sed -i "/${USER_ID}:x:/d" "${passwd_tmp}"
+          printf '${CRUNCHY_NSS_USERNAME}:x:${USER_ID}:${GROUP_ID}:${CRUNCHY_NSS_USER_DESC}:${HOME}:/bin/bash\n' >> "${passwd_tmp}"
+          envsubst < "${passwd_tmp}" > "${NSS_WRAPPER_PASSWD}"
+          rm "${passwd_tmp}"
+      else
+          echo "nss_wrapper: user exists"
+      fi
+      
+      # if the username (which will be the same as the group name) is missing from group file, then add it
+      if [[ ! $(cat "${NSS_WRAPPER_GROUP}") =~ ${CRUNCHY_NSS_USERNAME}:x:${USER_ID} ]]; then
+          echo "nss_wrapper: adding group"
+          group_tmp="${NSS_WRAPPER_DIR}/group_tmp"
+          cp "${NSS_WRAPPER_GROUP}" "${group_tmp}"
+          sed -i "/${CRUNCHY_NSS_USERNAME}:x:/d" "${group_tmp}"
+          printf '${CRUNCHY_NSS_USERNAME}:x:${USER_ID}:${CRUNCHY_NSS_USERNAME}\n' >> "${group_tmp}"
+          envsubst < "${group_tmp}" > "${NSS_WRAPPER_GROUP}"
+          rm "${group_tmp}"
+      else
+          echo "nss_wrapper: group exists"
+      fi
+      
+      # export the nss_wrapper env vars
+      # define nss_wrapper directory and passwd & group files that will be utilized by nss_wrapper
+      NSS_WRAPPER_DIR="/tmp/nss_wrapper/${NSS_WRAPPER_SUBDIR}"
+      NSS_WRAPPER_PASSWD="${NSS_WRAPPER_DIR}/passwd"
+      NSS_WRAPPER_GROUP="${NSS_WRAPPER_DIR}/group"
+      
+      export LD_PRELOAD=/usr/lib64/libnss_wrapper.so
+      export NSS_WRAPPER_PASSWD="${NSS_WRAPPER_PASSWD}"
+      export NSS_WRAPPER_GROUP="${NSS_WRAPPER_GROUP}"
+      
+      echo "nss_wrapper: environment configured"
+      
+    State:          Terminated
+      Reason:       Completed
+      Exit Code:    0
+      Started:      Wed, 11 May 2022 13:18:18 -0400
+      Finished:     Wed, 11 May 2022 13:18:18 -0400
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /tmp from tmp (rw)
+Containers:
+  pgbackrest:
+    Container ID:  containerd://f960a1450757c4ffac97cc2fbc4e957213d6590cfb250b128bed6893ba2b3b86
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0
+    Image ID:      registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest@sha256:93a597704eca04d4529f9db8c593e11ca74ca4d38a223d22a8837357fef3ab3d
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      pgbackrest
+      server
+    State:          Running
+      Started:      Wed, 11 May 2022 13:18:19 -0400
+    Ready:          True
+    Restart Count:  0
+    Liveness:       exec [pgbackrest server-ping] delay=0s timeout=1s period=10s #success=1 #failure=3
+    Environment:
+      LD_PRELOAD:          /usr/lib64/libnss_wrapper.so
+      NSS_WRAPPER_PASSWD:  /tmp/nss_wrapper/postgres/passwd
+      NSS_WRAPPER_GROUP:   /tmp/nss_wrapper/postgres/group
+    Mounts:
+      /etc/pgbackrest/conf.d from pgbackrest-config (ro)
+      /etc/pgbackrest/server from pgbackrest-server (ro)
+      /pgbackrest/repo1 from repo1 (rw)
+      /tmp from tmp (rw)
+  pgbackrest-config:
+    Container ID:  containerd://45a57321e71c1097605af1b7b555d4b71afeee15a35f649976d3bc6108b7e5dd
+    Image:         registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0
+    Image ID:      registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest@sha256:93a597704eca04d4529f9db8c593e11ca74ca4d38a223d22a8837357fef3ab3d
+    Port:          <none>
+    Host Port:     <none>
+    Command:
+      bash
+      -ceu
+      --
+      monitor() {
+      exec {fd}<> <(:)
+      until read -r -t 5 -u "${fd}"; do
+        if
+          [ "${filename}" -nt "/proc/self/fd/${fd}" ] &&
+          pkill -HUP --exact --parent=0 pgbackrest
+        then
+          exec {fd}>&- && exec {fd}<> <(:)
+          stat --dereference --format='Loaded configuration dated %y' "${filename}"
+        elif
+          { [ "${directory}" -nt "/proc/self/fd/${fd}" ] ||
+            [ "${authority}" -nt "/proc/self/fd/${fd}" ]
+          } &&
+          pkill -HUP --exact --parent=0 pgbackrest
+        then
+          exec {fd}>&- && exec {fd}<> <(:)
+          stat --format='Loaded certificates dated %y' "${directory}"
+        fi
+      done
+      }; export directory="$1" authority="$2" filename="$3"; export -f monitor; exec -a "$0" bash -ceu monitor
+      pgbackrest-config
+      /etc/pgbackrest/server
+      /etc/pgbackrest/conf.d/~postgres-operator/tls-ca.crt
+      /etc/pgbackrest/conf.d/~postgres-operator_server.conf
+    State:          Running
+      Started:      Wed, 11 May 2022 13:18:19 -0400
+    Ready:          True
+    Restart Count:  0
+    Environment:    <none>
+    Mounts:
+      /etc/pgbackrest/conf.d from pgbackrest-config (ro)
+      /etc/pgbackrest/server from pgbackrest-server (ro)
+      /tmp from tmp (rw)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  pgbackrest-server:
+    Type:                Projected (a volume that contains injected data from multiple sources)
+    SecretName:          owdb-pgbackrest
+    SecretOptionalName:  <nil>
+  repo1:
+    Type:       PersistentVolumeClaim (a reference to a PersistentVolumeClaim in the same namespace)
+    ClaimName:  owdb-repo1
+    ReadOnly:   false
+  pgbackrest-config:
+    Type:                Projected (a volume that contains injected data from multiple sources)
+    ConfigMapName:       owdb-pgbackrest-config
+    ConfigMapOptional:   <nil>
+    SecretName:          owdb-pgbackrest
+    SecretOptionalName:  <nil>
+  tmp:
+    Type:        EmptyDir (a temporary directory that shares a pod's lifetime)
+    Medium:      
+    SizeLimit:   16Mi
+QoS Class:       BestEffort
+Node-Selectors:  <none>
+Tolerations:     node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                 node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type     Reason                  Age    From                     Message
+  ----     ------                  ----   ----                     -------
+  Warning  FailedScheduling        7m22s  default-scheduler        0/3 nodes are available: 3 pod has unbound immediate PersistentVolumeClaims.
+  Warning  FailedScheduling        7m13s  default-scheduler        0/3 nodes are available: 3 pod has unbound immediate PersistentVolumeClaims.
+  Normal   Scheduled               7m8s   default-scheduler        Successfully assigned postgres-operator/owdb-repo-host-0 to app-f51ab83996c1
+  Warning  FailedScheduling        7m24s  default-scheduler        0/3 nodes are available: 3 persistentvolumeclaim "owdb-repo1" not found.
+  Normal   SuccessfulAttachVolume  7m6s   attachdetach-controller  AttachVolume.Attach succeeded for volume "pvc-d35a9fc1e3cc4aca"
+  Normal   Pulling                 7m     kubelet                  Pulling image "registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0"
+  Normal   Pulled                  6m47s  kubelet                  Successfully pulled image "registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0" in 12.852365868s
+  Normal   Created                 6m46s  kubelet                  Created container pgbackrest-log-dir
+  Normal   Started                 6m46s  kubelet                  Started container pgbackrest-log-dir
+  Normal   Started                 6m45s  kubelet                  Started container nss-wrapper-init
+  Normal   Created                 6m45s  kubelet                  Created container nss-wrapper-init
+  Normal   Pulled                  6m45s  kubelet                  Container image "registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0" already present on machine
+  Normal   Pulled                  6m44s  kubelet                  Container image "registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0" already present on machine
+  Normal   Created                 6m44s  kubelet                  Created container pgbackrest
+  Normal   Started                 6m44s  kubelet                  Started container pgbackrest
+  Normal   Pulled                  6m44s  kubelet                  Container image "registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0" already present on machine
+  Normal   Created                 6m44s  kubelet                  Created container pgbackrest-config
+  Normal   Started                 6m44s  kubelet                  Started container pgbackrest-config
+
+
+Name:         pgo-768c455c48-6zt6l
+Namespace:    postgres-operator
+Priority:     0
+Node:         data-cache-44e9aec6a7ab/10.39.96.5
+Start Time:   Wed, 11 May 2022 12:50:56 -0400
+Labels:       app.kubernetes.io/name=pgo
+              app.kubernetes.io/version=5.1.0
+              pod-template-hash=768c455c48
+              postgres-operator.crunchydata.com/control-plane=postgres-operator
+Annotations:  cni.projectcalico.org/podIP: 10.244.189.198/32
+              cni.projectcalico.org/podIPs: 10.244.189.198/32
+Status:       Running
+IP:           10.244.189.198
+IPs:
+  IP:           10.244.189.198
+Controlled By:  ReplicaSet/pgo-768c455c48
+Containers:
+  operator:
+    Container ID:   containerd://8b5fb0068dad8e14874cff5e7954579ca90c86988b8cda429fd73e15ead586f5
+    Image:          registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.1.0-0
+    Image ID:       registry.developers.crunchydata.com/crunchydata/postgres-operator@sha256:09d130ce56d45f4c956823ea671a17d67099400f802326c04485a0a9ee25d9c4
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Wed, 11 May 2022 12:50:57 -0400
+    Ready:          True
+    Restart Count:  0
+    Environment:
+      PGO_NAMESPACE:                      postgres-operator (v1:metadata.namespace)
+      CRUNCHY_DEBUG:                      true
+      RELATED_IMAGE_POSTGRES_13:          registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-13.6-1
+      RELATED_IMAGE_POSTGRES_13_GIS_3.1:  registry.developers.crunchydata.com/crunchydata/crunchy-postgres-gis:ubi8-13.6-3.1-1
+      RELATED_IMAGE_POSTGRES_14:          registry.developers.crunchydata.com/crunchydata/crunchy-postgres:ubi8-14.2-1
+      RELATED_IMAGE_POSTGRES_14_GIS_3.1:  registry.developers.crunchydata.com/crunchydata/crunchy-postgres-gis:ubi8-14.2-3.1-1
+      RELATED_IMAGE_PGADMIN:              registry.developers.crunchydata.com/crunchydata/crunchy-pgadmin4:ubi8-4.30-0
+      RELATED_IMAGE_PGBACKREST:           registry.developers.crunchydata.com/crunchydata/crunchy-pgbackrest:ubi8-2.38-0
+      RELATED_IMAGE_PGBOUNCER:            registry.developers.crunchydata.com/crunchydata/crunchy-pgbouncer:ubi8-1.16-2
+      RELATED_IMAGE_PGEXPORTER:           registry.developers.crunchydata.com/crunchydata/crunchy-postgres-exporter:ubi8-5.1.0-0
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-x4rnc (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  kube-api-access-x4rnc:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  34m   default-scheduler  Successfully assigned postgres-operator/pgo-768c455c48-6zt6l to data-cache-44e9aec6a7ab
+  Normal  Pulled     34m   kubelet            Container image "registry.developers.crunchydata.com/crunchydata/postgres-operator:ubi8-5.1.0-0" already present on machine
+  Normal  Created    34m   kubelet            Created container operator
+  Normal  Started    34m   kubelet            Started container operator
+
+
+Name:         pgo-upgrade-984dcb58c-skbg8
+Namespace:    postgres-operator
+Priority:     0
+Node:         data-cache-44e9aec6a7ab/10.39.96.5
+Start Time:   Wed, 11 May 2022 12:50:56 -0400
+Labels:       app.kubernetes.io/name=pgo
+              app.kubernetes.io/version=5.1.0
+              pod-template-hash=984dcb58c
+              postgres-operator.crunchydata.com/control-plane=postgres-operator-upgrade
+Annotations:  cni.projectcalico.org/podIP: 10.244.189.199/32
+              cni.projectcalico.org/podIPs: 10.244.189.199/32
+Status:       Running
+IP:           10.244.189.199
+IPs:
+  IP:           10.244.189.199
+Controlled By:  ReplicaSet/pgo-upgrade-984dcb58c
+Containers:
+  operator:
+    Container ID:   containerd://1a6c8ac05d0173f6ff085a3204776ea6644ed539a2f847a5c50605938349af70
+    Image:          registry.developers.crunchydata.com/crunchydata/postgres-operator-upgrade:ubi8-5.1.0-0
+    Image ID:       registry.developers.crunchydata.com/crunchydata/postgres-operator-upgrade@sha256:553debd2540727941322ea133759fb479387a011937f89556bea076cd87c47cf
+    Port:           <none>
+    Host Port:      <none>
+    State:          Running
+      Started:      Wed, 11 May 2022 12:50:57 -0400
+    Ready:          True
+    Restart Count:  0
+    Environment:
+      PGO_NAMESPACE:            postgres-operator (v1:metadata.namespace)
+      CRUNCHY_DEBUG:            true
+      RELATED_IMAGE_PGUPGRADE:  registry.developers.crunchydata.com/crunchydata/crunchy-upgrade:ubi8-5.1.0-0
+    Mounts:
+      /var/run/secrets/kubernetes.io/serviceaccount from kube-api-access-qtn5b (ro)
+Conditions:
+  Type              Status
+  Initialized       True 
+  Ready             True 
+  ContainersReady   True 
+  PodScheduled      True 
+Volumes:
+  kube-api-access-qtn5b:
+    Type:                    Projected (a volume that contains injected data from multiple sources)
+    TokenExpirationSeconds:  3607
+    ConfigMapName:           kube-root-ca.crt
+    ConfigMapOptional:       <nil>
+    DownwardAPI:             true
+QoS Class:                   BestEffort
+Node-Selectors:              <none>
+Tolerations:                 node.kubernetes.io/not-ready:NoExecute op=Exists for 300s
+                             node.kubernetes.io/unreachable:NoExecute op=Exists for 300s
+Events:
+  Type    Reason     Age   From               Message
+  ----    ------     ----  ----               -------
+  Normal  Scheduled  34m   default-scheduler  Successfully assigned postgres-operator/pgo-upgrade-984dcb58c-skbg8 to data-cache-44e9aec6a7ab
+  Normal  Pulled     34m   kubelet            Container image "registry.developers.crunchydata.com/crunchydata/postgres-operator-upgrade:ubi8-5.1.0-0" already present on machine
+  Normal  Created    34m   kubelet            Created container operator
+  Normal  Started    34m   kubelet            Started container operator

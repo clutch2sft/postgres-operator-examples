@@ -1,0 +1,19 @@
+This directory was used for the production install of OpenWisp.
+
+STEPS:
+
+kubectl apply -k kustomize/install/namespace
+
+kubectl apply --server-side -k kustomize/install/default
+    Verify
+    kubectl -n ow-postgres-operator get pods   --selector=postgres-operator.crunchydata.com/control-plane=postgres-operator   --field-selector=status.phase=Running -o wide
+
+kubectl apply -k kustomize/postgres
+    Verify
+    kubectl -n ow-postgres-operator describe postgresclusters.postgres-operator.crunchydata.com owdb
+
+kubectl -n postgres-operator describe secrets owdb-pguser-owdb
+
+
+
+                
